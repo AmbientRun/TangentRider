@@ -1,0 +1,26 @@
+[package]
+id = "vsywwcmghxgv7wl3csj65oxqggqack5z"
+name = "Tangent Rider"
+version = "0.0.1"
+content = { type = "Playable" }
+ambient_version = "0.3.0"
+
+[dependencies]
+tangent_spawner_vehicle = { deployment = "1eog2C0HyjgdXRHrXGKVh0" }
+tangent_behavior_vehicle = { deployment = "3rS6RNW4MCneWO6LXMGqGl" }
+tangent_vehicle_standard = { deployment = "HF74FAS7HFNFn7o88wuQ6" }
+tangent_ui_flat_hud = { deployment = "2h7Vz1Hxzs03zGlKcfwFaf" }
+
+tangent_schema = { deployment = "14jbn64hStNAf1lMtbcLMp" }
+tangent_rider_schema = { path = "schema" }
+game_object = { deployment = "2gucFZwO8bDdnuA2UeeFBn" }
+
+hide_cursor = { deployment = "2ejmKJKgh6b4pTnwWPdv4s" }
+
+[messages.Input]
+name = "Input"
+description = "Input"
+[messages.Input.fields]
+direction = "Vec2"
+jump = "Bool"
+respawn = "Bool"

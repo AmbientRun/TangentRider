@@ -1,0 +1,6 @@
+[package]
+id = "vrhmoduo7ycojfmefrfovrhiockmhdc2"
+name = "Tangent Rider Schema"
+version = "0.0.1"
+content = { type = "Playable" }
+ambient_version = "0.3.0"
