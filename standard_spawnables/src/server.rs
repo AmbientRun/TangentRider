@@ -6,7 +6,7 @@ use ambient_api::{
     },
     prelude::*,
 };
-use packages::tangent_rider_schema::concepts::Spawnable;
+use packages::tangent_rider_schema::{components::autospinner, concepts::Spawnable};
 
 #[main]
 pub fn main() {
@@ -63,6 +63,22 @@ pub fn main() {
         Spawnable {
             spawnable_name: "Big Cube".to_string(),
             spawnable_cost: 50,
+            spawnable_main_ref: base.clone().with(cube_collider(), Vec3::ONE).spawn(),
+            spawnable_ghost_ref: base.spawn(),
+        }
+        .spawn();
+    }
+
+    {
+        let base = Entity::new()
+            .with(cube(), ())
+            .with(translation(), Vec3::Z * -100.)
+            .with(scale(), vec3(0.2, 10.0, 3.0))
+            .with(autospinner(), vec3(90f32.to_radians(), 0.0, 0.0));
+
+        Spawnable {
+            spawnable_name: "Spinner".to_string(),
+            spawnable_cost: 250,
             spawnable_main_ref: base.clone().with(cube_collider(), Vec3::ONE).spawn(),
             spawnable_ghost_ref: base.spawn(),
         }

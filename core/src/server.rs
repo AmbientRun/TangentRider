@@ -16,8 +16,8 @@ use packages::{
     game_object::components::health,
     tangent_rider_schema::{
         components::{
-            active_players, alive_player_queue, game_phase, is_end_platform, is_spawned,
-            is_start_platform, player_construction_mode, player_current_spawnable,
+            active_players, alive_player_queue, autospinner, game_phase, is_end_platform,
+            is_spawned, is_start_platform, player_construction_mode, player_current_spawnable,
             player_current_spawnable_ghost, player_deaths, player_is_ready, player_money,
             start_position, winner,
         },
@@ -27,7 +27,10 @@ use packages::{
     },
     tangent_schema::{
         player::components as pc,
-        vehicle::{components as vc, def::components::is_def},
+        vehicle::{
+            components::{self as vc, is_vehicle},
+            def::components::is_def,
+        },
     },
     tangent_spawner_vehicle::messages::VehicleSpawn,
     this::messages::{
@@ -45,7 +48,7 @@ pub async fn main() {
         .with(plane_collider(), ())
         .with(dynamic(), false)
         .with(scale(), Vec3::ONE * 10_000.)
-        .with(color(), vec4(0.1, 0.8, 0.25, 1.0))
+        .with(color(), vec4(0.1, 0.25, 0.8, 1.0))
         .spawn();
 
     // Create the sky.
@@ -97,6 +100,19 @@ pub async fn main() {
                 });
             }
         });
+
+    // Handle autospinners.
+    query(autospinner()).each_frame(|spinners| {
+        for (spinner_id, spinner_amount) in spinners {
+            entity::mutate_component(spinner_id, rotation(), |rot| {
+                let dt = delta_time();
+                *rot = Quat::from_rotation_z(spinner_amount.x * dt)
+                    * Quat::from_rotation_x(spinner_amount.y * dt)
+                    * Quat::from_rotation_y(spinner_amount.z * dt)
+                    * *rot;
+            });
+        }
+    });
 
     // When a player sends input, update their input state.
     Input::subscribe(|ctx, input| {
@@ -500,6 +516,7 @@ fn start_scoreboard_phase() {
             entity::get_all(is_start_platform()),
             entity::get_all(is_end_platform()),
             entity::get_all(is_spawned()),
+            entity::get_all(is_vehicle()),
         ]
         .into_iter()
         .flatten()

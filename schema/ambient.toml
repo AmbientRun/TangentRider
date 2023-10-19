@@ -69,6 +69,13 @@ name = "Is Spawned"
 description = "Attached to an entity that has been spawned."
 attributes = ["Networked", "Debuggable"]
 
+# Attributes
+[components.autospinner]
+type = "Vec3"
+name = "Autospinner"
+description = "When attached to an entity, makes that entity spin around its centre. X/Y/Z=Yaw/Pitch/Roll, magnitude is speed in radians/s."
+attributes = ["Networked", "Debuggable"]
+
 # Spawnables
 [components.spawnable_name]
 type = "String"
