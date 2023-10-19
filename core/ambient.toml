@@ -37,6 +37,11 @@ description = "Sent when the client wants the server to spawn a ghost spawnable"
 [messages.ConstructionSpawnGhost.fields]
 spawnable_id = "EntityId"
 
+[messages.ConstructionSpawn]
+name = "Construction spawn"
+description = "Sent when the client wants the server to spawn a spawnable, replacing the ghost"
+[messages.ConstructionSpawn.fields]
+
 [messages.MarkAsReady]
 name = "Mark as ready"
 description = "Sent when a player is done in the construction phase and ready to start playing"

@@ -27,7 +27,9 @@ use packages::{
         vehicle::{components as vc, def::components::is_def},
     },
     tangent_spawner_vehicle::messages::VehicleSpawn,
-    this::messages::{ConstructionCameraUpdate, ConstructionSpawnGhost, MarkAsReady},
+    this::messages::{
+        ConstructionCameraUpdate, ConstructionSpawn, ConstructionSpawnGhost, MarkAsReady,
+    },
 };
 
 use crate::packages::{
@@ -158,6 +160,52 @@ pub async fn main() {
                 camera_ltw.transform_point3(vec3(0., 0., 10.)),
             );
         }
+    });
+
+    // Convert the ghost to a spawned object when requested.
+    ConstructionSpawn::subscribe(|ctx, _msg| {
+        let Some(player_id) = ctx.client_entity_id() else {
+            return;
+        };
+
+        if entity::get_component(entity::synchronized_resources(), game_phase())
+            != Some(GamePhase::Construction)
+        {
+            return;
+        }
+
+        let Some(spawnable_id) = entity::get_component(player_id, player_current_spawnable())
+        else {
+            return;
+        };
+
+        let Some(spawnable) = Spawnable::get_spawned(spawnable_id) else {
+            return;
+        };
+
+        let Some(ghost_id) = entity::get_component(player_id, player_current_spawnable_ghost())
+        else {
+            return;
+        };
+
+        if entity::mutate_component(player_id, player_money(), |money| {
+            *money = money.saturating_sub(spawnable.spawnable_cost)
+        })
+        .is_none()
+        {
+            return;
+        }
+
+        let Some(ghost) = entity::despawn(ghost_id) else {
+            return;
+        };
+        entity::remove_component(player_id, player_current_spawnable());
+        entity::remove_component(player_id, player_current_spawnable_ghost());
+
+        entity::get_all_components(spawnable.spawnable_main_ref)
+            .with(translation(), ghost.get(translation()).unwrap_or_default())
+            .with(rotation(), ghost.get(rotation()).unwrap_or_default())
+            .spawn();
     });
 
     // Sync player input state to vehicle input state.

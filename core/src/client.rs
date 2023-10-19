@@ -24,7 +24,9 @@ use packages::{
         types::GamePhase,
     },
     tangent_schema::player::components as pc,
-    this::messages::{ConstructionCameraUpdate, ConstructionSpawnGhost, MarkAsReady},
+    this::messages::{
+        ConstructionCameraUpdate, ConstructionSpawn, ConstructionSpawnGhost, MarkAsReady,
+    },
 };
 
 #[main]
@@ -127,7 +129,8 @@ impl Construction {
         let (delta, input) = input::get_delta();
 
         if input.mouse_buttons.contains(&MouseButton::Right) {
-            self.camera_yaw = (self.camera_yaw + delta.mouse_position.x * 1f32.to_radians()) % PI;
+            self.camera_yaw =
+                (self.camera_yaw + delta.mouse_position.x * 1f32.to_radians()).rem_euclid(2. * PI);
             self.camera_pitch = (self.camera_pitch + delta.mouse_position.y * 1f32.to_radians())
                 .clamp(-89f32.to_radians(), 89f32.to_radians());
 
@@ -136,6 +139,10 @@ impl Construction {
         } else {
             input::set_cursor_lock(false);
             input::set_cursor_visible(true);
+        }
+
+        if delta.keys_released.contains(&KeyCode::Space) {
+            ConstructionSpawn.send_server_reliable();
         }
 
         let rot = Quat::from_rotation_z(self.camera_yaw) * Quat::from_rotation_x(self.camera_pitch);
@@ -194,7 +201,7 @@ fn ConstructionSidebar(hooks: &mut Hooks) -> Element {
                 Text::el("Use your money to build a course from the red block to the green block."),
                 Text::el("Everyone else can build, too, so build the best path for *you*!"),
                 Text::el("WASD to move, right-click to look around."),
-                Text::el("Click on an available item to try it out; left-clicking will place it."),
+                Text::el("Click on an available item to try it out; pressing Space will place it."),
             ])
             .with(space_between_items(), 4.0),
             Button::new("Ready!", move |_| {
