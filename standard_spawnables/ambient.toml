@@ -6,4 +6,17 @@ content = { type = "Asset", code = true }
 ambient_version = "0.3.0"
 
 [dependencies]
-tangent_rider_schema = { path = "../schema" , deployment = "7UPzrjFjBiEw0MBBKJ4xIJ" }
+tangent_schema = { deployment = "14jbn64hStNAf1lMtbcLMp" }
+tangent_rider_schema = { path = "../schema", deployment = "7UPzrjFjBiEw0MBBKJ4xIJ" }
+
+[components.is_boost_pad]
+name = "Is Boost Pad"
+description = "Marks an entity as a boost pad."
+type = "Empty"
+attributes = ["Debuggable", "Networked"]
+
+[components.last_boost_time]
+name = "Last Boost Time"
+description = "The last time this boost pad was used."
+type = "Duration"
+attributes = ["Debuggable", "Networked"]
