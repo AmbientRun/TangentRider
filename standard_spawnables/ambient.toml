@@ -7,7 +7,7 @@ ambient_version = "0.3.0"
 
 [dependencies]
 tangent_schema = { deployment = "14jbn64hStNAf1lMtbcLMp" }
-tangent_rider_schema = { path = "../schema", deployment = "7UPzrjFjBiEw0MBBKJ4xIJ" }
+tangent_rider_schema = { path = "../schema", deployment = "7ao6OlBzikNjUWzmncDBtr" }
 
 [components.is_boost_pad]
 name = "Is Boost Pad"

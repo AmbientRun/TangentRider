@@ -6,6 +6,6 @@ content = { type = "Playable" }
 ambient_version = "0.3.0"
 
 [dependencies]
-tangent_rider_schema = { path = "schema" , deployment = "7UPzrjFjBiEw0MBBKJ4xIJ" }
-tangent_rider_core = { path = "core" , deployment = "XTGNKSIrjnNgc9tYaA9js" }
-tangent_rider_standard_spawnables = { path = "standard_spawnables" , deployment = "4OH016N22uZM86ROAdKcrp" }
+tangent_rider_schema = { path = "schema" , deployment = "7ao6OlBzikNjUWzmncDBtr" }
+tangent_rider_core = { path = "core" , deployment = "xbTHqRHH6JzbBEP08uyF5" }
+tangent_rider_standard_spawnables = { path = "standard_spawnables" , deployment = "20nye1FF5d6sqYrAWttYm1" }
