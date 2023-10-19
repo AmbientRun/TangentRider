@@ -21,8 +21,8 @@ use ambient_api::{
 use packages::{
     tangent_rider_schema::{
         components::{
-            game_phase, player_construction_mode, player_current_spawnable_ghost, player_deaths,
-            player_is_ready, player_money, start_position, winner,
+            active_players, game_phase, player_construction_mode, player_current_spawnable_ghost,
+            player_deaths, player_is_ready, player_money, start_position, winner,
         },
         concepts::Spawnable,
         types::{ConstructionMode, GamePhase},
@@ -138,6 +138,11 @@ impl Default for Construction {
 }
 impl Construction {
     pub fn tick(&mut self, camera_id: EntityId) {
+        let is_an_active_player =
+            entity::get_component(entity::synchronized_resources(), active_players())
+                .unwrap_or_default()
+                .contains(&player::get_local());
+
         let (delta, input) = input::get_delta();
         self.mouse_delta_accumulator += input.mouse_delta;
 
@@ -154,6 +159,29 @@ impl Construction {
                 (self.camera_yaw + delta.mouse_position.x * 1f32.to_radians()).rem_euclid(2. * PI);
             self.camera_pitch = (self.camera_pitch + delta.mouse_position.y * 1f32.to_radians())
                 .clamp(-89f32.to_radians(), 89f32.to_radians());
+        }
+
+        let rot = Quat::from_rotation_z(self.camera_yaw) * Quat::from_rotation_x(self.camera_pitch);
+        let movement = [
+            (KeyCode::W, -Vec3::Y),
+            (KeyCode::S, Vec3::Y),
+            (KeyCode::A, -Vec3::X),
+            (KeyCode::D, Vec3::X),
+        ]
+        .iter()
+        .filter(|(key, _)| input.keys.contains(key))
+        .fold(Vec3::ZERO, |acc, (_, dir)| acc + *dir);
+        self.camera_position += rot * movement * 10. * delta_time();
+
+        entity::set_component(camera_id, translation(), self.camera_position);
+        entity::set_component(
+            camera_id,
+            lookat_target(),
+            self.camera_position + rot * -Vec3::Y,
+        );
+
+        if !is_an_active_player {
+            return;
         }
 
         if current_ghost_id.is_some() {
@@ -177,25 +205,6 @@ impl Construction {
         } else if delta.keys_released.contains(&KeyCode::Key4) {
             ConstructionSetMode::new(ConstructionMode::RotateRoll).send_server_reliable();
         }
-
-        let rot = Quat::from_rotation_z(self.camera_yaw) * Quat::from_rotation_x(self.camera_pitch);
-        let movement = [
-            (KeyCode::W, -Vec3::Y),
-            (KeyCode::S, Vec3::Y),
-            (KeyCode::A, -Vec3::X),
-            (KeyCode::D, Vec3::X),
-        ]
-        .iter()
-        .filter(|(key, _)| input.keys.contains(key))
-        .fold(Vec3::ZERO, |acc, (_, dir)| acc + *dir);
-        self.camera_position += rot * movement * 10. * delta_time();
-
-        entity::set_component(camera_id, translation(), self.camera_position);
-        entity::set_component(
-            camera_id,
-            lookat_target(),
-            self.camera_position + rot * -Vec3::Y,
-        );
 
         let now = game_time();
         if (now - self.last_send_time) > Duration::from_millis(20) {
@@ -257,6 +266,22 @@ fn ConstructionUI(hooks: &mut Hooks) -> Element {
 
 #[element_component]
 fn ConstructionSidebar(hooks: &mut Hooks) -> Element {
+    let active_players = entity::get_component(entity::synchronized_resources(), active_players())
+        .unwrap_or_default();
+
+    if !active_players.contains(&player::get_local()) {
+        return with_rect(
+            FlowColumn::el([
+                Text::el("You are a late joiner to this game.").header_style(),
+                Text::el("Please wait for it to complete."),
+            ])
+            .with_padding_even(4.0)
+            .with(space_between_items(), 6.0),
+        )
+        .with_margin_even(STREET)
+        .with_background(vec4(0.0, 0.0, 0.0, 0.5));
+    }
+
     let is_ready = use_entity_component(hooks, player::get_local(), player_is_ready()).is_some();
     let money =
         use_entity_component(hooks, player::get_local(), player_money()).unwrap_or_default();

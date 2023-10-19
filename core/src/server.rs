@@ -342,6 +342,22 @@ const PLATFORM_WIDTH: f32 = 6.0;
 /// The length of a single player slot on the platform in metres.
 const PLAYER_SLOT_LENGTH: f32 = 8.0;
 
+// "Production" settings
+/// The variance in angle of the end platform from the start platform.
+const LEVEL_ANGLE_VARIANCE: f32 = 45.0;
+/// The length between the start and end platforms.
+const LEVEL_LENGTH: f32 = 50.0;
+/// The variance in height of the end platform from the start platform.
+const LEVEL_HEIGHT_VARIANCE: f32 = 20.0;
+
+// Testing settings
+// /// The variance in angle of the end platform from the start platform.
+// const LEVEL_ANGLE_VARIANCE: f32 = 0.0;
+// /// The length between the start and end platforms.
+// const LEVEL_LENGTH: f32 = 20.0;
+// /// The variance in height of the end platform from the start platform.
+// const LEVEL_HEIGHT_VARIANCE: f32 = 0.0;
+
 fn make_level() {
     /// The position of the start platform.
     const START_POSITION: Vec3 = vec3(0., 0., 100.);
@@ -350,12 +366,13 @@ fn make_level() {
         .unwrap_or_default()
         .len();
 
-    let end_rotation_offset_angle = rand::distributions::Uniform::new_inclusive(-45f32, 45f32)
-        .sample(&mut thread_rng())
-        .to_radians();
+    let end_rotation_offset_angle =
+        rand::distributions::Uniform::new_inclusive(-LEVEL_ANGLE_VARIANCE, LEVEL_ANGLE_VARIANCE)
+            .sample(&mut thread_rng())
+            .to_radians();
     let end_position = START_POSITION
-        + Quat::from_rotation_z(end_rotation_offset_angle) * vec3(0., -50., 0.)
-        + vec3(0., 0., (random::<f32>() - 0.5) * 20.);
+        + Quat::from_rotation_z(end_rotation_offset_angle) * vec3(0., -LEVEL_LENGTH, 0.)
+        + vec3(0., 0., (random::<f32>() - 0.5) * LEVEL_HEIGHT_VARIANCE);
 
     // Spawn platforms
     let start_platform_length = PLAYER_SLOT_LENGTH * (player_count as f32);
@@ -508,8 +525,10 @@ fn start_scoreboard_phase() {
         sleep(5.).await;
 
         for id in entity::get_all(is_player()) {
-            entity::remove_components(id, &[&winner(), &player_deaths(), &player_money()]);
+            entity::remove_components(id, &[&player_deaths(), &player_money()]);
         }
+
+        entity::remove_component(entity::synchronized_resources(), winner());
 
         // Destroy the created level.
         for id in [
