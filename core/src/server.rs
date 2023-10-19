@@ -28,7 +28,8 @@ use packages::{
     },
     tangent_spawner_vehicle::messages::VehicleSpawn,
     this::messages::{
-        ConstructionCameraUpdate, ConstructionSpawn, ConstructionSpawnGhost, MarkAsReady,
+        ConstructionCameraUpdate, ConstructionCancel, ConstructionSpawn, ConstructionSpawnGhost,
+        MarkAsReady,
     },
 };
 
@@ -160,6 +161,22 @@ pub async fn main() {
                 camera_ltw.transform_point3(vec3(0., 0., 10.)),
             );
         }
+    });
+
+    // Handle construction cancellation.
+    ConstructionCancel::subscribe(|ctx, _msg| {
+        let Some(player_id) = ctx.client_entity_id() else {
+            return;
+        };
+
+        let Some(ghost_id) = entity::get_component(player_id, player_current_spawnable_ghost())
+        else {
+            return;
+        };
+
+        entity::despawn(ghost_id);
+        entity::remove_component(player_id, player_current_spawnable());
+        entity::remove_component(player_id, player_current_spawnable_ghost());
     });
 
     // Convert the ghost to a spawned object when requested.

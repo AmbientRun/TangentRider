@@ -25,7 +25,8 @@ use packages::{
     },
     tangent_schema::player::components as pc,
     this::messages::{
-        ConstructionCameraUpdate, ConstructionSpawn, ConstructionSpawnGhost, MarkAsReady,
+        ConstructionCameraUpdate, ConstructionCancel, ConstructionSpawn, ConstructionSpawnGhost,
+        MarkAsReady,
     },
 };
 
@@ -143,6 +144,8 @@ impl Construction {
 
         if delta.keys_released.contains(&KeyCode::Space) {
             ConstructionSpawn.send_server_reliable();
+        } else if delta.keys_released.contains(&KeyCode::Escape) {
+            ConstructionCancel.send_server_reliable();
         }
 
         let rot = Quat::from_rotation_z(self.camera_yaw) * Quat::from_rotation_x(self.camera_pitch);
