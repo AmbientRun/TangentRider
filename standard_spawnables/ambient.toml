@@ -6,4 +6,4 @@ content = { type = "Asset", code = true }
 ambient_version = "0.3.0"
 
 [dependencies]
-tangent_rider_schema = { path = "../schema" }
+tangent_rider_schema = { path = "../schema" , deployment = "7UPzrjFjBiEw0MBBKJ4xIJ" }
