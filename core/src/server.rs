@@ -16,11 +16,13 @@ use packages::{
     game_object::components::health,
     tangent_rider_schema::{
         components::{
-            active_players, alive_player_queue, player_construction_camera_local_to_world,
+            active_players, alive_player_queue, game_phase, player_construction_mode,
             player_current_spawnable, player_current_spawnable_ghost, player_is_ready,
             player_money, start_position,
         },
         concepts::Spawnable,
+        types::ConstructionMode,
+        types::GamePhase,
     },
     tangent_schema::{
         player::components as pc,
@@ -28,14 +30,9 @@ use packages::{
     },
     tangent_spawner_vehicle::messages::VehicleSpawn,
     this::messages::{
-        ConstructionCameraUpdate, ConstructionCancel, ConstructionSpawn, ConstructionSpawnGhost,
-        MarkAsReady,
+        ConstructionCancel, ConstructionRotateGhost, ConstructionSetGhostPosition,
+        ConstructionSetMode, ConstructionSpawn, ConstructionSpawnGhost, Input, MarkAsReady,
     },
-};
-
-use crate::packages::{
-    tangent_rider_schema::{components::game_phase, types::GamePhase},
-    this::messages::Input,
 };
 
 #[main]
@@ -112,19 +109,6 @@ pub async fn main() {
         );
     });
 
-    // When a player sends their construction camera data, update their state.
-    ConstructionCameraUpdate::subscribe(|ctx, msg| {
-        let Some(player_id) = ctx.client_entity_id() else {
-            return;
-        };
-
-        entity::add_component(
-            player_id,
-            player_construction_camera_local_to_world(),
-            msg.local_to_world,
-        );
-    });
-
     // Spawn a ghost when requested.
     ConstructionSpawnGhost::subscribe(|ctx, msg| {
         let Some(player_id) = ctx.client_entity_id() else {
@@ -143,24 +127,39 @@ pub async fn main() {
 
         remove_player_spawnable(player_id);
 
-        let ghost_id = entity::get_all_components(spawnable.spawnable_ghost_ref).spawn();
+        let ghost_id = entity::get_all_components(spawnable.spawnable_ghost_ref)
+            .with(translation(), default())
+            .with(rotation(), default())
+            .spawn();
         entity::add_component(player_id, player_current_spawnable(), msg.spawnable_id);
         entity::add_component(player_id, player_current_spawnable_ghost(), ghost_id);
     });
 
-    // Ensure the ghost is always in front of the player. TODO: handle different modes
-    query((
-        player_construction_camera_local_to_world(),
-        player_current_spawnable_ghost(),
-    ))
-    .each_frame(|players| {
-        for (_player_id, (camera_ltw, ghost_id)) in players {
-            entity::set_component(
-                ghost_id,
-                translation(),
-                camera_ltw.transform_point3(vec3(0., 0., 10.)),
-            );
-        }
+    // Handle ghost manipulation.
+    ConstructionSetGhostPosition::subscribe(|ctx, msg| {
+        let Some(player_id) = ctx.client_entity_id() else {
+            return;
+        };
+
+        let Some(ghost_id) = entity::get_component(player_id, player_current_spawnable_ghost())
+        else {
+            return;
+        };
+
+        entity::set_component(ghost_id, translation(), msg.position);
+    });
+
+    ConstructionRotateGhost::subscribe(|ctx, msg| {
+        let Some(player_id) = ctx.client_entity_id() else {
+            return;
+        };
+
+        let Some(ghost_id) = entity::get_component(player_id, player_current_spawnable_ghost())
+        else {
+            return;
+        };
+
+        entity::mutate_component(ghost_id, rotation(), |rot| *rot *= msg.rotation);
     });
 
     // Handle construction cancellation.
@@ -223,6 +222,21 @@ pub async fn main() {
             .with(translation(), ghost.get(translation()).unwrap_or_default())
             .with(rotation(), ghost.get(rotation()).unwrap_or_default())
             .spawn();
+    });
+
+    // Handle construction set mode.
+    ConstructionSetMode::subscribe(|ctx, msg| {
+        let Some(player_id) = ctx.client_entity_id() else {
+            return;
+        };
+
+        if entity::get_component(entity::synchronized_resources(), game_phase())
+            != Some(GamePhase::Construction)
+        {
+            return;
+        }
+
+        entity::add_component(player_id, player_construction_mode(), msg.mode);
     });
 
     // Sync player input state to vehicle input state.
@@ -343,13 +357,14 @@ fn start_construct_phase() {
         GamePhase::Construction,
     );
 
-    // Prepare the entering-constructio state for each player
+    // Prepare the entering-construction state for each player
     let players = entity::get_component(entity::synchronized_resources(), active_players())
         .unwrap_or_default();
 
     for id in &players {
         entity::remove_component(*id, player_is_ready());
         entity::mutate_component_with_default(*id, player_money(), 500, |money| *money += 500);
+        entity::add_component(*id, player_construction_mode(), ConstructionMode::Place);
     }
 
     run_async(async move {

@@ -18,12 +18,6 @@ name = "Player Money"
 description = "The amount of money that a player has."
 attributes = ["Networked", "Debuggable"]
 
-[components.player_construction_camera_local_to_world]
-type = "Mat4"
-name = "Construction Camera Local To World"
-description = "The local to world matrix of this player's construction camera, synced by their client to the server."
-attributes = ["Networked", "Debuggable"]
-
 [components.player_current_spawnable]
 type = "EntityId"
 name = "Current Spawnable"
@@ -35,6 +29,20 @@ type = "EntityId"
 name = "Current Spawnable Ghost"
 description = "The ghost of the spawnable that the player currently has selected (actually in-world)."
 attributes = ["Networked", "Debuggable"]
+
+[components.player_construction_mode]
+type = "ConstructionMode"
+name = "Construction Mode"
+description = "The construction mode that the player is currently in."
+attributes = ["Networked", "Debuggable"]
+
+[enums.ConstructionMode]
+description = "The construction mode that the player is currently in."
+[enums.ConstructionMode.members]
+Place = "The player is placing a spawnable."
+RotateYaw = "The player is rotating the yaw of a spawnable."
+RotatePitch = "The player is rotating the pitch of a spawnable."
+RotateRoll = "The player is rotating the roll of a spawnable."
 
 # Spawnables
 [components.spawnable_name]

@@ -25,17 +25,23 @@ direction = "Vec2"
 jump = "Bool"
 respawn = "Bool"
 
-[messages.ConstructionCameraUpdate]
-name = "Construction camera update"
-description = "Sent when the server should know about the local player's construction camera"
-[messages.ConstructionCameraUpdate.fields]
-local_to_world = "Mat4"
-
 [messages.ConstructionSpawnGhost]
 name = "Construction spawn ghost"
 description = "Sent when the client wants the server to spawn a ghost spawnable"
 [messages.ConstructionSpawnGhost.fields]
 spawnable_id = "EntityId"
+
+[messages.ConstructionSetGhostPosition]
+name = "Construction set ghost position"
+description = "Sent when the client wants to update the position of the ghost"
+[messages.ConstructionSetGhostPosition.fields]
+position = "Vec3"
+
+[messages.ConstructionRotateGhost]
+name = "Construction rotate ghost"
+description = "Sent when the client wants to rotate the ghost"
+[messages.ConstructionRotateGhost.fields]
+rotation = "Quat"
 
 [messages.ConstructionCancel]
 name = "Construction cancel"
@@ -46,6 +52,12 @@ description = "Sent when the client wants to cancel their current construction"
 name = "Construction spawn"
 description = "Sent when the client wants the server to spawn a spawnable, replacing the ghost"
 [messages.ConstructionSpawn.fields]
+
+[messages.ConstructionSetMode]
+name = "Construction set mode"
+description = "Sent when the client wants to change the construction mode"
+[messages.ConstructionSetMode.fields]
+mode = "tangent_rider_schema::ConstructionMode"
 
 [messages.MarkAsReady]
 name = "Mark as ready"

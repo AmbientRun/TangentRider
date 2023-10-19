@@ -19,14 +19,17 @@ use ambient_api::{
 };
 use packages::{
     tangent_rider_schema::{
-        components::{game_phase, player_is_ready, player_money, start_position},
+        components::{
+            game_phase, player_construction_mode, player_current_spawnable_ghost, player_is_ready,
+            player_money, start_position,
+        },
         concepts::Spawnable,
-        types::GamePhase,
+        types::{ConstructionMode, GamePhase},
     },
     tangent_schema::player::components as pc,
     this::messages::{
-        ConstructionCameraUpdate, ConstructionCancel, ConstructionSpawn, ConstructionSpawnGhost,
-        MarkAsReady,
+        ConstructionCancel, ConstructionRotateGhost, ConstructionSetGhostPosition,
+        ConstructionSetMode, ConstructionSpawn, ConstructionSpawnGhost, MarkAsReady,
     },
 };
 
@@ -109,6 +112,7 @@ pub struct Construction {
     camera_yaw: f32,
     camera_pitch: f32,
     last_send_time: Duration,
+    mouse_delta_accumulator: Vec2,
 }
 impl Default for Construction {
     fn default() -> Self {
@@ -122,19 +126,31 @@ impl Default for Construction {
             camera_yaw: 0.,
             camera_pitch: 45f32.to_radians(),
             last_send_time: game_time(),
+            mouse_delta_accumulator: Vec2::ZERO,
         }
     }
 }
 impl Construction {
     pub fn tick(&mut self, camera_id: EntityId) {
         let (delta, input) = input::get_delta();
+        self.mouse_delta_accumulator += input.mouse_delta;
 
-        if input.mouse_buttons.contains(&MouseButton::Right) {
+        let current_ghost_id =
+            entity::get_component(player::get_local(), player_current_spawnable_ghost());
+        let construction_mode =
+            entity::get_component(player::get_local(), player_construction_mode())
+                .unwrap_or(ConstructionMode::Place);
+
+        if input.mouse_buttons.contains(&MouseButton::Right)
+            || (current_ghost_id.is_some() && construction_mode == ConstructionMode::Place)
+        {
             self.camera_yaw =
                 (self.camera_yaw + delta.mouse_position.x * 1f32.to_radians()).rem_euclid(2. * PI);
             self.camera_pitch = (self.camera_pitch + delta.mouse_position.y * 1f32.to_radians())
                 .clamp(-89f32.to_radians(), 89f32.to_radians());
+        }
 
+        if current_ghost_id.is_some() {
             input::set_cursor_lock(true);
             input::set_cursor_visible(false);
         } else {
@@ -146,6 +162,14 @@ impl Construction {
             ConstructionSpawn.send_server_reliable();
         } else if delta.keys_released.contains(&KeyCode::Escape) {
             ConstructionCancel.send_server_reliable();
+        } else if delta.keys_released.contains(&KeyCode::Key1) {
+            ConstructionSetMode::new(ConstructionMode::Place).send_server_reliable();
+        } else if delta.keys_released.contains(&KeyCode::Key2) {
+            ConstructionSetMode::new(ConstructionMode::RotateYaw).send_server_reliable();
+        } else if delta.keys_released.contains(&KeyCode::Key3) {
+            ConstructionSetMode::new(ConstructionMode::RotatePitch).send_server_reliable();
+        } else if delta.keys_released.contains(&KeyCode::Key4) {
+            ConstructionSetMode::new(ConstructionMode::RotateRoll).send_server_reliable();
         }
 
         let rot = Quat::from_rotation_z(self.camera_yaw) * Quat::from_rotation_x(self.camera_pitch);
@@ -169,11 +193,46 @@ impl Construction {
 
         let now = game_time();
         if (now - self.last_send_time) > Duration::from_millis(20) {
-            ConstructionCameraUpdate {
-                local_to_world: entity::get_component(camera_id, local_to_world())
-                    .unwrap_or_default(),
+            let mut reset_mouse_delta = true;
+            match construction_mode {
+                ConstructionMode::Place => {
+                    ConstructionSetGhostPosition {
+                        position: entity::get_component(camera_id, local_to_world())
+                            .unwrap_or_default()
+                            .transform_point3(vec3(0., 0., 10.)),
+                    }
+                    .send_server_unreliable();
+                    reset_mouse_delta = false;
+                }
+                ConstructionMode::RotateYaw => {
+                    ConstructionRotateGhost {
+                        rotation: Quat::from_rotation_z(
+                            self.mouse_delta_accumulator.x * 1f32.to_radians(),
+                        ),
+                    }
+                    .send_server_unreliable();
+                }
+                ConstructionMode::RotatePitch => {
+                    ConstructionRotateGhost {
+                        rotation: Quat::from_rotation_x(
+                            self.mouse_delta_accumulator.y * 1f32.to_radians(),
+                        ),
+                    }
+                    .send_server_unreliable();
+                }
+                ConstructionMode::RotateRoll => {
+                    ConstructionRotateGhost {
+                        rotation: Quat::from_rotation_y(
+                            self.mouse_delta_accumulator.x * 1f32.to_radians(),
+                        ),
+                    }
+                    .send_server_unreliable();
+                }
             }
-            .send_server_unreliable();
+
+            if reset_mouse_delta {
+                self.mouse_delta_accumulator = Vec2::ZERO;
+            }
         }
     }
 }
@@ -196,6 +255,14 @@ fn ConstructionSidebar(hooks: &mut Hooks) -> Element {
     let money =
         use_entity_component(hooks, player::get_local(), player_money()).unwrap_or_default();
     let spawnables = use_query(hooks, Spawnable::as_query());
+    let mode = use_entity_component(hooks, player::get_local(), player_construction_mode())
+        .map(|mode| match mode {
+            ConstructionMode::Place => "Place",
+            ConstructionMode::RotateYaw => "Rotate Yaw",
+            ConstructionMode::RotatePitch => "Rotate Pitch",
+            ConstructionMode::RotateRoll => "Rotate Roll",
+        })
+        .unwrap_or("None");
 
     with_rect(
         FlowColumn::el([
@@ -203,8 +270,13 @@ fn ConstructionSidebar(hooks: &mut Hooks) -> Element {
                 Text::el("Tangent Rider").header_style(),
                 Text::el("Use your money to build a course from the red block to the green block."),
                 Text::el("Everyone else can build, too, so build the best path for *you*!"),
+                Text::el("Click on an available item to try it out."),
+                Separator::el(false),
+                Text::el(format!("Mode: {mode}")),
                 Text::el("WASD to move, right-click to look around."),
-                Text::el("Click on an available item to try it out; pressing Space will place it."),
+                Text::el(
+                    "Space to spawn, 1/2/3/4 for place and rotate yaw/pitch/roll respectively.",
+                ),
             ])
             .with(space_between_items(), 4.0),
             Button::new("Ready!", move |_| {
