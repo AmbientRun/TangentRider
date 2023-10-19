@@ -4,8 +4,8 @@ use ambient_api::{
         messages::Collision,
         physics::components::{cube_collider, dynamic, physics_controlled, plane_collider},
         player::components::is_player,
-        primitives::components::cube,
-        rendering::components::{color, fog_density, light_diffuse, sky, sun, water},
+        primitives::components::{cube, quad},
+        rendering::components::{color, fog_density, light_diffuse, sky, sun},
         transform::components::{rotation, scale, translation},
     },
     prelude::*,
@@ -16,9 +16,10 @@ use packages::{
     game_object::components::health,
     tangent_rider_schema::{
         components::{
-            active_players, alive_player_queue, game_phase, player_construction_mode,
-            player_current_spawnable, player_current_spawnable_ghost, player_is_ready,
-            player_money, start_position,
+            active_players, alive_player_queue, game_phase, is_end_platform, is_spawned,
+            is_start_platform, player_construction_mode, player_current_spawnable,
+            player_current_spawnable_ghost, player_deaths, player_is_ready, player_money,
+            start_position, winner,
         },
         concepts::Spawnable,
         types::ConstructionMode,
@@ -38,13 +39,13 @@ use packages::{
 #[main]
 pub async fn main() {
     // Create the ground.
-    let water_id = Entity::new()
-        .with(water(), ())
+    let ground_id = Entity::new()
+        .with(quad(), ())
         .with(physics_controlled(), ())
         .with(plane_collider(), ())
         .with(dynamic(), false)
         .with(scale(), Vec3::ONE * 10_000.)
-        .with(color(), vec4(0.93, 0.75, 0.83, 1.0))
+        .with(color(), vec4(0.1, 0.8, 0.25, 1.0))
         .spawn();
 
     // Create the sky.
@@ -91,6 +92,9 @@ pub async fn main() {
                         queue.retain(|id| *id != driver_id);
                     },
                 );
+                entity::mutate_component_with_default(driver_id, player_deaths(), 1, |deaths| {
+                    *deaths += 1;
+                });
             }
         });
 
@@ -226,6 +230,7 @@ pub async fn main() {
         entity::get_all_components(spawnable.spawnable_main_ref)
             .with(translation(), ghost.get(translation()).unwrap_or_default())
             .with(rotation(), ghost.get(rotation()).unwrap_or_default())
+            .with(is_spawned(), ())
             .spawn();
     });
 
@@ -242,6 +247,13 @@ pub async fn main() {
         }
 
         entity::add_component(player_id, player_construction_mode(), msg.mode);
+    });
+
+    // Mark the player as ready when requested.
+    MarkAsReady::subscribe(|ctx, _| {
+        if let Some(player_id) = ctx.client_entity_id() {
+            entity::add_component(player_id, player_is_ready(), ());
+        }
     });
 
     // Sync player input state to vehicle input state.
@@ -268,7 +280,7 @@ pub async fn main() {
 
     // If any vehicles collide with the water, blow them up.
     Collision::subscribe(move |msg| {
-        if !msg.ids.contains(&water_id) {
+        if !msg.ids.contains(&ground_id) {
             return;
         }
 
@@ -282,11 +294,25 @@ pub async fn main() {
         }
     });
 
-    MarkAsReady::subscribe(|ctx, _| {
-        if let Some(player_id) = ctx.client_entity_id() {
-            entity::add_component(player_id, player_is_ready(), ());
-        }
-    });
+    // Handle reaching the end platform.
+    let end_platforms_query = query(translation()).requires(is_end_platform()).build();
+    query((translation(), vc::driver_ref()))
+        .requires(vc::is_vehicle())
+        .each_frame(move |vehicles| {
+            let end_platforms = end_platforms_query.evaluate();
+
+            for (vehicle_id, (position, driver_id)) in vehicles {
+                if end_platforms
+                    .iter()
+                    .any(|(_platform_id, platform_position)| {
+                        platform_position.distance_squared(position) < PLATFORM_WIDTH.powi(2)
+                    })
+                {
+                    entity::set_component(vehicle_id, health(), 0.);
+                    entity::add_component(entity::synchronized_resources(), winner(), driver_id);
+                }
+            }
+        });
 
     // Wait for vehicle defs to be available and for there to be at least one player, then start the game
     block_until(|| entity::get_all(is_def()).len() > 0 && entity::get_all(is_player()).len() > 0)
@@ -313,7 +339,7 @@ fn make_level() {
         .to_radians();
     let end_position = START_POSITION
         + Quat::from_rotation_z(end_rotation_offset_angle) * vec3(0., -50., 0.)
-        + vec3(0., 0., (random::<f32>() - 0.5) * 50.);
+        + vec3(0., 0., (random::<f32>() - 0.5) * 20.);
 
     // Spawn platforms
     let start_platform_length = PLAYER_SLOT_LENGTH * (player_count as f32);
@@ -326,6 +352,7 @@ fn make_level() {
             START_POSITION + vec3(0., start_platform_length / 2., 0.),
         )
         .with(color(), vec4(1.0, 0.0, 0.0, 1.0))
+        .with(is_start_platform(), ())
         .spawn();
 
     let _end_platform = Entity::new()
@@ -334,6 +361,7 @@ fn make_level() {
         .with(scale(), vec3(PLATFORM_WIDTH, PLATFORM_WIDTH, 0.2))
         .with(translation(), end_position)
         .with(color(), vec4(0.0, 1.0, 0.0, 1.0))
+        .with(is_end_platform(), ())
         .spawn();
 
     entity::add_component(
@@ -433,14 +461,53 @@ fn start_play_phase() {
     );
 
     run_async(async move {
-        block_until(|| {
-            entity::get_component(entity::synchronized_resources(), alive_player_queue())
+        loop {
+            if entity::get_component(entity::synchronized_resources(), winner()).is_some() {
+                // Someone won, switch to scoreboard
+                start_scoreboard_phase();
+                break;
+            } else if entity::get_component(entity::synchronized_resources(), alive_player_queue())
                 .unwrap_or_default()
                 .is_empty()
-        })
-        .await;
+            {
+                // Everyone is dead without a winner, construct phase
+                start_construct_phase();
+                break;
+            } else {
+                // TODO: implement a yield() at some point
+                sleep(0.1).await;
+            }
+        }
+    });
+}
 
-        start_construct_phase();
+fn start_scoreboard_phase() {
+    entity::add_component(
+        entity::synchronized_resources(),
+        game_phase(),
+        GamePhase::Scoreboard,
+    );
+
+    run_async(async move {
+        sleep(5.).await;
+
+        for id in entity::get_all(is_player()) {
+            entity::remove_components(id, &[&winner(), &player_deaths(), &player_money()]);
+        }
+
+        // Destroy the created level.
+        for id in [
+            entity::get_all(is_start_platform()),
+            entity::get_all(is_end_platform()),
+            entity::get_all(is_spawned()),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            entity::despawn(id);
+        }
+
+        start_game();
     });
 }
 

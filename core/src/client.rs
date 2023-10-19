@@ -10,6 +10,7 @@ use ambient_api::{
         },
         messages::Frame,
         physics::components::linear_velocity,
+        player::components::user_id,
         transform::components::{local_to_world, lookat_target, lookat_up, rotation, translation},
         ui::components::focusable,
     },
@@ -20,8 +21,8 @@ use ambient_api::{
 use packages::{
     tangent_rider_schema::{
         components::{
-            game_phase, player_construction_mode, player_current_spawnable_ghost, player_is_ready,
-            player_money, start_position,
+            game_phase, player_construction_mode, player_current_spawnable_ghost, player_deaths,
+            player_is_ready, player_money, start_position, winner,
         },
         concepts::Spawnable,
         types::{ConstructionMode, GamePhase},
@@ -79,30 +80,35 @@ fn GameUI(hooks: &mut Hooks) -> Element {
     match phase {
         GamePhase::Construction => ConstructionUI.el(),
         GamePhase::Play => PlayUI.el(),
+        GamePhase::Scoreboard => ScoreboardUI.el(),
     }
 }
 
 enum Phase {
     Construction(Construction),
     Play(Play),
+    Scoreboard,
 }
 impl Phase {
     pub fn tick(&mut self, game_phase: GamePhase, camera_id: EntityId) {
         let running_phase = match self {
             Phase::Construction(_) => GamePhase::Construction,
             Phase::Play(_) => GamePhase::Play,
+            Phase::Scoreboard => GamePhase::Scoreboard,
         };
 
         if game_phase != running_phase {
             *self = match game_phase {
                 GamePhase::Construction => Phase::Construction(Default::default()),
                 GamePhase::Play => Phase::Play(Default::default()),
+                GamePhase::Scoreboard => Phase::Scoreboard,
             }
         }
 
         match self {
             Phase::Construction(p) => p.tick(camera_id),
             Phase::Play(p) => p.tick(camera_id),
+            Phase::Scoreboard => {}
         }
     }
 }
@@ -207,7 +213,7 @@ impl Construction {
                 ConstructionMode::RotateYaw => {
                     ConstructionRotateGhost {
                         rotation: Quat::from_rotation_z(
-                            self.mouse_delta_accumulator.x * 1f32.to_radians(),
+                            self.mouse_delta_accumulator.x * -1f32.to_radians(),
                         ),
                     }
                     .send_server_unreliable();
@@ -215,7 +221,7 @@ impl Construction {
                 ConstructionMode::RotatePitch => {
                     ConstructionRotateGhost {
                         rotation: Quat::from_rotation_x(
-                            self.mouse_delta_accumulator.y * 1f32.to_radians(),
+                            self.mouse_delta_accumulator.y * -1f32.to_radians(),
                         ),
                     }
                     .send_server_unreliable();
@@ -269,7 +275,7 @@ fn ConstructionSidebar(hooks: &mut Hooks) -> Element {
             FlowColumn::el([
                 Text::el("Tangent Rider").header_style(),
                 Text::el("Use your money to build a course from the red block to the green block."),
-                Text::el("Everyone else can build, too, so build the best path for *you*!"),
+                Text::el("Everyone else can build, too, so don't get cocky!"),
                 Text::el("Click on an available item to try it out."),
                 Separator::el(false),
                 Text::el(format!("Mode: {mode}")),
@@ -411,4 +417,28 @@ impl Play {
 #[element_component]
 fn PlayUI(_hooks: &mut Hooks) -> Element {
     Element::new()
+}
+
+#[element_component]
+fn ScoreboardUI(hooks: &mut Hooks) -> Element {
+    let winner_id = use_entity_component(hooks, entity::synchronized_resources(), winner());
+    let players = use_query(hooks, (user_id(), player_deaths()));
+
+    WindowSized::el([with_rect(Dock::el([FlowColumn::el([
+        Text::el(format!(
+            "The winner is {}!",
+            winner_id
+                .and_then(|id| entity::get_component(id, user_id()))
+                .unwrap_or("Unknown".to_string()),
+        ))
+        .header_style(),
+        FlowColumn::el(
+            players
+                .into_iter()
+                .map(|(_, (uid, deaths))| Text::el(format!("{uid}: {deaths} deaths"))),
+        ),
+    ])
+    .with(docking(), Docking::Fill)]))
+    .with_background(vec4(0.0, 0.0, 0.0, 0.5))])
+    .with_padding_even(20.)
 }

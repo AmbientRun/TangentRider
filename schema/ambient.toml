@@ -36,6 +36,12 @@ name = "Construction Mode"
 description = "The construction mode that the player is currently in."
 attributes = ["Networked", "Debuggable"]
 
+[components.player_deaths]
+type = "U32"
+name = "Player Deaths"
+description = "The number of times that the player has died."
+attributes = ["Networked", "Debuggable"]
+
 [enums.ConstructionMode]
 description = "The construction mode that the player is currently in."
 [enums.ConstructionMode.members]
@@ -43,6 +49,25 @@ Place = "The player is placing a spawnable."
 RotateYaw = "The player is rotating the yaw of a spawnable."
 RotatePitch = "The player is rotating the pitch of a spawnable."
 RotateRoll = "The player is rotating the roll of a spawnable."
+
+# Spawned objects
+[components.is_start_platform]
+type = "Empty"
+name = "Is Start Platform"
+description = "Attached to a start platform."
+attributes = ["Networked", "Debuggable"]
+
+[components.is_end_platform]
+type = "Empty"
+name = "Is End Platform"
+description = "Attached to an end platform."
+attributes = ["Networked", "Debuggable"]
+
+[components.is_spawned]
+type = "Empty"
+name = "Is Spawned"
+description = "Attached to an entity that has been spawned."
+attributes = ["Networked", "Debuggable"]
 
 # Spawnables
 [components.spawnable_name]
@@ -103,8 +128,15 @@ name = "Game Phase"
 description = "The phase of the current game."
 attributes = ["MaybeResource", "Networked", "Debuggable"]
 
+[components.winner]
+type = "EntityId"
+name = "Winner"
+description = "The winner of the current game."
+attributes = ["MaybeResource", "Networked", "Debuggable"]
+
 [enums.GamePhase]
 description = "The phase of the current game."
 [enums.GamePhase.members]
 Construction = "The players are constructing the level."
 Play = "The players are playing the level."
+Scoreboard = "The players are viewing the scoreboard."
