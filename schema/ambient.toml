@@ -4,3 +4,39 @@ name = "Tangent Rider Schema"
 version = "0.0.1"
 content = { type = "Playable" }
 ambient_version = "0.3.0"
+
+[components.is_ready]
+type = "Empty"
+name = "Is Ready"
+description = "Attached to a player when they are ready to start the game."
+attributes = ["Networked", "Debuggable"]
+
+[components.start_position]
+type = "Vec3"
+name = "Start Position"
+description = "The position that the player starts at."
+attributes = ["MaybeResource", "Networked", "Debuggable"]
+
+[components.active_players]
+type = { container_type = "Vec", element_type = "EntityId" }
+name = "Active Players"
+description = "The players that are active for this game (i.e. set of rounds). Can be different to the players in the server (as they may have joined after the game started)."
+attributes = ["MaybeResource", "Networked", "Debuggable"]
+
+[components.alive_player_queue]
+type = { container_type = "Vec", element_type = "EntityId" }
+name = "Alive Player Queue"
+description = "The queue of players that are currently alive. Players that die will be removed from the queue."
+attributes = ["MaybeResource", "Networked", "Debuggable"]
+
+[components.game_phase]
+type = "GamePhase"
+name = "Game Phase"
+description = "The phase of the current game."
+attributes = ["MaybeResource", "Networked", "Debuggable"]
+
+[enums.GamePhase]
+description = "The phase of the current game."
+[enums.GamePhase.members]
+Construction = "The players are constructing the level."
+Play = "The players are playing the level."

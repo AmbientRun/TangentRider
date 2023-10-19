@@ -24,3 +24,8 @@ description = "Input"
 direction = "Vec2"
 jump = "Bool"
 respawn = "Bool"
+
+[messages.MarkAsReady]
+name = "Mark as ready"
+description = "Sent when a player is done in the construction phase and ready to start playing"
+[messages.MarkAsReady.fields]
