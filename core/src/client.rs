@@ -15,7 +15,7 @@ use ambient_api::{
         ui::components::focusable,
     },
     element::{use_entity_component, use_query},
-    input::Input,
+    input::{Input, InputDelta},
     prelude::*,
 };
 use packages::{
@@ -113,14 +113,12 @@ impl Phase {
     }
 }
 
-pub struct Construction {
+struct FlyCamera {
     camera_position: Vec3,
     camera_yaw: f32,
     camera_pitch: f32,
-    last_send_time: Duration,
-    mouse_delta_accumulator: Vec2,
 }
-impl Default for Construction {
+impl Default for FlyCamera {
     fn default() -> Self {
         Self {
             camera_position: entity::get_component(
@@ -131,30 +129,12 @@ impl Default for Construction {
                 + vec3(0., 20., 20.),
             camera_yaw: 0.,
             camera_pitch: 45f32.to_radians(),
-            last_send_time: game_time(),
-            mouse_delta_accumulator: Vec2::ZERO,
         }
     }
 }
-impl Construction {
-    pub fn tick(&mut self, camera_id: EntityId) {
-        let is_an_active_player =
-            entity::get_component(entity::synchronized_resources(), active_players())
-                .unwrap_or_default()
-                .contains(&player::get_local());
-
-        let (delta, input) = input::get_delta();
-        self.mouse_delta_accumulator += input.mouse_delta;
-
-        let current_ghost_id =
-            entity::get_component(player::get_local(), player_current_spawnable_ghost());
-        let construction_mode =
-            entity::get_component(player::get_local(), player_construction_mode())
-                .unwrap_or(ConstructionMode::Place);
-
-        if input.mouse_buttons.contains(&MouseButton::Right)
-            || (current_ghost_id.is_some() && construction_mode == ConstructionMode::Place)
-        {
+impl FlyCamera {
+    fn tick(&mut self, camera_id: EntityId, delta: &InputDelta, input: &Input, force_angle: bool) {
+        if input.mouse_buttons.contains(&MouseButton::Right) || force_angle {
             self.camera_yaw =
                 (self.camera_yaw + delta.mouse_position.x * 1f32.to_radians()).rem_euclid(2. * PI);
             self.camera_pitch = (self.camera_pitch + delta.mouse_position.y * 1f32.to_radians())
@@ -178,6 +158,45 @@ impl Construction {
             camera_id,
             lookat_target(),
             self.camera_position + rot * -Vec3::Y,
+        );
+    }
+}
+
+pub struct Construction {
+    camera: FlyCamera,
+    last_send_time: Duration,
+    mouse_delta_accumulator: Vec2,
+}
+impl Default for Construction {
+    fn default() -> Self {
+        Self {
+            camera: Default::default(),
+            last_send_time: game_time(),
+            mouse_delta_accumulator: Vec2::ZERO,
+        }
+    }
+}
+impl Construction {
+    pub fn tick(&mut self, camera_id: EntityId) {
+        let is_an_active_player =
+            entity::get_component(entity::synchronized_resources(), active_players())
+                .unwrap_or_default()
+                .contains(&player::get_local());
+
+        let (delta, input) = input::get_delta();
+        self.mouse_delta_accumulator += input.mouse_delta;
+
+        let current_ghost_id =
+            entity::get_component(player::get_local(), player_current_spawnable_ghost());
+        let construction_mode =
+            entity::get_component(player::get_local(), player_construction_mode())
+                .unwrap_or(ConstructionMode::Place);
+
+        self.camera.tick(
+            camera_id,
+            &delta,
+            &input,
+            current_ghost_id.is_some() && construction_mode == ConstructionMode::Place,
         );
 
         if !is_an_active_player {
@@ -266,20 +285,12 @@ fn ConstructionUI(hooks: &mut Hooks) -> Element {
 
 #[element_component]
 fn ConstructionSidebar(hooks: &mut Hooks) -> Element {
-    let active_players = entity::get_component(entity::synchronized_resources(), active_players())
-        .unwrap_or_default();
+    let active_players =
+        use_entity_component(hooks, entity::synchronized_resources(), active_players())
+            .unwrap_or_default();
 
     if !active_players.contains(&player::get_local()) {
-        return with_rect(
-            FlowColumn::el([
-                Text::el("You are a late joiner to this game.").header_style(),
-                Text::el("Please wait for it to complete."),
-            ])
-            .with_padding_even(4.0)
-            .with(space_between_items(), 6.0),
-        )
-        .with_margin_even(STREET)
-        .with_background(vec4(0.0, 0.0, 0.0, 0.5));
+        return InactivePlayer.el();
     }
 
     let is_ready = use_entity_component(hooks, player::get_local(), player_is_ready()).is_some();
@@ -359,12 +370,14 @@ fn ConstructionSpawnable(
 }
 
 pub struct Play {
+    fly_camera: FlyCamera,
     last_input: Input,
     last_input_send_time: Duration,
 }
 impl Default for Play {
     fn default() -> Self {
         Self {
+            fly_camera: default(),
             last_input: input::get(),
             last_input_send_time: game_time(),
         }
@@ -372,6 +385,15 @@ impl Default for Play {
 }
 impl Play {
     pub fn tick(&mut self, camera_id: EntityId) {
+        let active_players =
+            entity::get_component(entity::synchronized_resources(), active_players())
+                .unwrap_or_default();
+
+        if !active_players.contains(&player::get_local()) {
+            let (delta, input) = input::get_delta();
+            return self.fly_camera.tick(camera_id, &delta, &input, true);
+        }
+
         let _ = self.handle_camera(camera_id);
         self.handle_input();
     }
@@ -440,7 +462,15 @@ impl Play {
 }
 
 #[element_component]
-fn PlayUI(_hooks: &mut Hooks) -> Element {
+fn PlayUI(hooks: &mut Hooks) -> Element {
+    let active_players =
+        use_entity_component(hooks, entity::synchronized_resources(), active_players())
+            .unwrap_or_default();
+
+    if !active_players.contains(&player::get_local()) {
+        return InactivePlayer.el();
+    }
+
     Element::new()
 }
 
@@ -466,4 +496,18 @@ fn ScoreboardUI(hooks: &mut Hooks) -> Element {
     .with(docking(), Docking::Fill)]))
     .with_background(vec4(0.0, 0.0, 0.0, 0.5))])
     .with_padding_even(20.)
+}
+
+#[element_component]
+fn InactivePlayer(_hooks: &mut Hooks) -> Element {
+    with_rect(
+        FlowColumn::el([
+            Text::el("You are a late joiner to this game.").header_style(),
+            Text::el("Please wait for it to complete."),
+        ])
+        .with_padding_even(4.0)
+        .with(space_between_items(), 6.0),
+    )
+    .with_margin_even(STREET)
+    .with_background(vec4(0.0, 0.0, 0.0, 0.5))
 }
