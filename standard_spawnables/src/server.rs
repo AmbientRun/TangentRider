@@ -18,8 +18,51 @@ pub fn main() {
             .with(scale(), vec3(5.0, 10.0, 0.2));
 
         Spawnable {
-            spawnable_name: "Long Block".to_string(),
+            spawnable_name: "Long Plank".to_string(),
             spawnable_cost: 100,
+            spawnable_main_ref: base.clone().with(cube_collider(), Vec3::ONE).spawn(),
+            spawnable_ghost_ref: base.spawn(),
+        }
+        .spawn();
+    }
+    {
+        let base = Entity::new()
+            .with(cube(), ())
+            .with(translation(), Vec3::Z * -100.)
+            .with(scale(), vec3(5.0, 5.0, 0.2));
+
+        Spawnable {
+            spawnable_name: "Square Plank".to_string(),
+            spawnable_cost: 50,
+            spawnable_main_ref: base.clone().with(cube_collider(), Vec3::ONE).spawn(),
+            spawnable_ghost_ref: base.spawn(),
+        }
+        .spawn();
+    }
+    {
+        let base = Entity::new()
+            .with(cube(), ())
+            .with(translation(), Vec3::Z * -100.)
+            .with(scale(), vec3(5.0, 20.0, 0.2));
+
+        Spawnable {
+            spawnable_name: "Super-Long Plank".to_string(),
+            spawnable_cost: 200,
+            spawnable_main_ref: base.clone().with(cube_collider(), Vec3::ONE).spawn(),
+            spawnable_ghost_ref: base.spawn(),
+        }
+        .spawn();
+    }
+
+    {
+        let base = Entity::new()
+            .with(cube(), ())
+            .with(translation(), Vec3::Z * -100.)
+            .with(scale(), Vec3::ONE * 3.);
+
+        Spawnable {
+            spawnable_name: "Big Cube".to_string(),
+            spawnable_cost: 50,
             spawnable_main_ref: base.clone().with(cube_collider(), Vec3::ONE).spawn(),
             spawnable_ghost_ref: base.spawn(),
         }

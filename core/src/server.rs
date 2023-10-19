@@ -133,6 +133,11 @@ pub async fn main() {
             .spawn();
         entity::add_component(player_id, player_current_spawnable(), msg.spawnable_id);
         entity::add_component(player_id, player_current_spawnable_ghost(), ghost_id);
+        entity::add_component(
+            player_id,
+            player_construction_mode(),
+            ConstructionMode::Place,
+        );
     });
 
     // Handle ghost manipulation.
@@ -307,7 +312,7 @@ fn make_level() {
         .sample(&mut thread_rng())
         .to_radians();
     let end_position = START_POSITION
-        + Quat::from_rotation_z(end_rotation_offset_angle) * vec3(0., -100., 0.)
+        + Quat::from_rotation_z(end_rotation_offset_angle) * vec3(0., -50., 0.)
         + vec3(0., 0., (random::<f32>() - 0.5) * 50.);
 
     // Spawn platforms
@@ -399,8 +404,17 @@ fn start_play_phase() {
     let start_position = entity::get_component(entity::synchronized_resources(), start_position())
         .unwrap_or_default();
 
-    // Spawn vehicles on platforms
+    // Prepare players and spawn vehicles on platforms
     for (i, player_id) in active_players.iter().enumerate() {
+        entity::remove_components(
+            *player_id,
+            &[
+                &pc::input_direction(),
+                &pc::input_jump(),
+                &pc::input_respawn(),
+            ],
+        );
+
         VehicleSpawn {
             def_id: *defs
                 .choose(&mut thread_rng())
