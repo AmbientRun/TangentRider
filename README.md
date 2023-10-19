@@ -6,7 +6,7 @@ Tangent Rider is a very basic game inspired by Line Rider and Ultimate Chicken H
 
 Its primary purpose is to demonstrate how you might mod a game with Ambient. It's not the most mechanically complex or polished game, but it's designed to be remixed with more placeable blocks, as well as other mechanics you might consider adding.
 
-To get started with remixing it, [install Ambient](https://ambient.run/docs/user/installing), then create a new package. You *do* not need to clone this repository. We recommend that you follow the rest of the tutorial first to get an understanding for what working in Ambient is like.
+To get started with remixing it, [install Ambient](https://ambient.run/docs/user/installing), then create a new package. You do **not** need to clone this repository. We recommend that you follow the rest of the tutorial first to get an understanding for what working in Ambient is like.
 
 ```sh
 ambient new my_tangent_rider_remix --name "My Tangent Rider Remix" --rust empty
