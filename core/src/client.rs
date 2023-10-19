@@ -10,20 +10,21 @@ use ambient_api::{
         },
         messages::Frame,
         physics::components::linear_velocity,
-        transform::components::{lookat_target, lookat_up, rotation, translation},
+        transform::components::{local_to_world, lookat_target, lookat_up, rotation, translation},
         ui::components::focusable,
     },
-    element::use_entity_component,
+    element::{use_entity_component, use_query},
     input::Input,
     prelude::*,
 };
 use packages::{
     tangent_rider_schema::{
-        components::{game_phase, is_ready, start_position},
+        components::{game_phase, player_is_ready, player_money, start_position},
+        concepts::Spawnable,
         types::GamePhase,
     },
     tangent_schema::player::components as pc,
-    this::messages::MarkAsReady,
+    this::messages::{ConstructionCameraUpdate, ConstructionSpawnGhost, MarkAsReady},
 };
 
 #[main]
@@ -104,6 +105,7 @@ pub struct Construction {
     camera_position: Vec3,
     camera_yaw: f32,
     camera_pitch: f32,
+    last_send_time: Duration,
 }
 impl Default for Construction {
     fn default() -> Self {
@@ -116,6 +118,7 @@ impl Default for Construction {
                 + vec3(0., 20., 20.),
             camera_yaw: 0.,
             camera_pitch: 45f32.to_radians(),
+            last_send_time: game_time(),
         }
     }
 }
@@ -153,6 +156,15 @@ impl Construction {
             lookat_target(),
             self.camera_position + rot * -Vec3::Y,
         );
+
+        let now = game_time();
+        if (now - self.last_send_time) > Duration::from_millis(20) {
+            ConstructionCameraUpdate {
+                local_to_world: entity::get_component(camera_id, local_to_world())
+                    .unwrap_or_default(),
+            }
+            .send_server_unreliable();
+        }
     }
 }
 
@@ -170,7 +182,10 @@ fn ConstructionUI(hooks: &mut Hooks) -> Element {
 
 #[element_component]
 fn ConstructionSidebar(hooks: &mut Hooks) -> Element {
-    let is_ready = use_entity_component(hooks, player::get_local(), is_ready()).is_some();
+    let is_ready = use_entity_component(hooks, player::get_local(), player_is_ready()).is_some();
+    let money =
+        use_entity_component(hooks, player::get_local(), player_money()).unwrap_or_default();
+    let spawnables = use_query(hooks, Spawnable::as_query());
 
     with_rect(
         FlowColumn::el([
@@ -188,12 +203,46 @@ fn ConstructionSidebar(hooks: &mut Hooks) -> Element {
             .style(ButtonStyle::Primary)
             .disabled(is_ready)
             .el(),
+            with_rect(
+                FlowColumn::el(
+                    std::iter::once(Text::el(format!("Money: ${money}"))).chain(
+                        spawnables
+                            .into_iter()
+                            .map(|(id, spawnable)| ConstructionSpawnable::el(id, spawnable, money)),
+                    ),
+                )
+                .with_padding_even(4.0)
+                .with(space_between_items(), 6.0),
+            )
+            .with_background(vec4(0.0, 0.0, 0.0, 0.5))
+            .with(fit_horizontal(), Fit::Parent),
         ])
         .with_padding_even(4.0)
         .with(space_between_items(), 6.0),
     )
     .with_margin_even(STREET)
     .with_background(vec4(0.0, 0.0, 0.0, 0.5))
+}
+
+#[element_component]
+fn ConstructionSpawnable(
+    _hooks: &mut Hooks,
+    spawnable_id: EntityId,
+    spawnable: Spawnable,
+    player_money: u32,
+) -> Element {
+    Button::new(
+        format!(
+            "{} (${})",
+            spawnable.spawnable_name, spawnable.spawnable_cost
+        ),
+        move |_| {
+            ConstructionSpawnGhost { spawnable_id }.send_server_reliable();
+        },
+    )
+    .style(ButtonStyle::Regular)
+    .disabled(spawnable.spawnable_cost > player_money)
+    .el()
 }
 
 pub struct Play {

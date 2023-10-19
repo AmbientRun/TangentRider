@@ -2,15 +2,75 @@
 id = "vrhmoduo7ycojfmefrfovrhiockmhdc2"
 name = "Tangent Rider Schema"
 version = "0.0.1"
-content = { type = "Playable" }
+content = { type = "Asset", schema = true }
 ambient_version = "0.3.0"
 
-[components.is_ready]
+# Player-attached
+[components.player_is_ready]
 type = "Empty"
 name = "Is Ready"
 description = "Attached to a player when they are ready to start the game."
 attributes = ["Networked", "Debuggable"]
 
+[components.player_money]
+type = "U32"
+name = "Player Money"
+description = "The amount of money that a player has."
+attributes = ["Networked", "Debuggable"]
+
+[components.player_construction_camera_local_to_world]
+type = "Mat4"
+name = "Construction Camera Local To World"
+description = "The local to world matrix of this player's construction camera, synced by their client to the server."
+attributes = ["Networked", "Debuggable"]
+
+[components.player_current_spawnable]
+type = "EntityId"
+name = "Current Spawnable"
+description = "The spawnable that the player currently has selected."
+attributes = ["Networked", "Debuggable"]
+
+[components.player_current_spawnable_ghost]
+type = "EntityId"
+name = "Current Spawnable Ghost"
+description = "The ghost of the spawnable that the player currently has selected (actually in-world)."
+attributes = ["Networked", "Debuggable"]
+
+# Spawnables
+[components.spawnable_name]
+type = "String"
+name = "Spawnable name"
+description = "The name of a spawnable."
+attributes = ["Networked", "Debuggable"]
+
+[components.spawnable_cost]
+type = "U32"
+name = "Spawnable cost"
+description = "The cost of a spawnable."
+attributes = ["Networked", "Debuggable"]
+
+[components.spawnable_main_ref]
+type = "EntityId"
+name = "Spawnable main ref"
+description = "The entity that will be cloned and spawned."
+attributes = ["Networked", "Debuggable"]
+
+[components.spawnable_ghost_ref]
+type = "EntityId"
+name = "Spawnable ghost ref"
+description = "The entity that is used as a ghost for this spawnable."
+attributes = ["Networked", "Debuggable"]
+
+[concepts.Spawnable]
+name = "Spawnable"
+description = "A spawnable"
+[concepts.Spawnable.components.required]
+spawnable_name = {}
+spawnable_cost = {}
+spawnable_main_ref = {}
+spawnable_ghost_ref = {}
+
+# Resources
 [components.start_position]
 type = "Vec3"
 name = "Start Position"

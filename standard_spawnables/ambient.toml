@@ -1,0 +1,9 @@
+[package]
+id = "b2qh3cpwjwtq4fsextoplrkuxzhsejy4"
+name = "Tangent Rider Standard Spawnables"
+version = "0.0.1"
+content = { type = "Asset", code = true }
+ambient_version = "0.3.0"
+
+[dependencies]
+tangent_rider_schema = { path = "../schema" }

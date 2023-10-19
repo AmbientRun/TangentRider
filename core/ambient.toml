@@ -1,0 +1,43 @@
+[package]
+id = "xaznlnetsjbjncejvw5ytk54nsoy2m6x"
+name = "Tangent Rider Core"
+version = "0.0.1"
+content = { type = "Asset", code = true }
+ambient_version = "0.3.0"
+
+[dependencies]
+tangent_spawner_vehicle = { deployment = "1eog2C0HyjgdXRHrXGKVh0" }
+tangent_behavior_vehicle = { deployment = "3rS6RNW4MCneWO6LXMGqGl" }
+tangent_vehicle_standard = { deployment = "HF74FAS7HFNFn7o88wuQ6" }
+tangent_ui_flat_hud = { deployment = "2h7Vz1Hxzs03zGlKcfwFaf" }
+
+tangent_schema = { deployment = "14jbn64hStNAf1lMtbcLMp" }
+tangent_rider_schema = { path = "../schema" }
+game_object = { deployment = "2gucFZwO8bDdnuA2UeeFBn" }
+
+hide_cursor = { deployment = "2ejmKJKgh6b4pTnwWPdv4s" }
+
+[messages.Input]
+name = "Input"
+description = "Input"
+[messages.Input.fields]
+direction = "Vec2"
+jump = "Bool"
+respawn = "Bool"
+
+[messages.ConstructionCameraUpdate]
+name = "Construction camera update"
+description = "Sent when the server should know about the local player's construction camera"
+[messages.ConstructionCameraUpdate.fields]
+local_to_world = "Mat4"
+
+[messages.ConstructionSpawnGhost]
+name = "Construction spawn ghost"
+description = "Sent when the client wants the server to spawn a ghost spawnable"
+[messages.ConstructionSpawnGhost.fields]
+spawnable_id = "EntityId"
+
+[messages.MarkAsReady]
+name = "Mark as ready"
+description = "Sent when a player is done in the construction phase and ready to start playing"
+[messages.MarkAsReady.fields]

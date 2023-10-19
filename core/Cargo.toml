@@ -1,0 +1,23 @@
+[package]
+name = "tangent_rider_core"
+
+edition = "2021"
+publish = false
+version = "0.0.1"
+
+[dependencies]
+ambient_api = { git = "https://github.com/AmbientRun/Ambient.git", tag = "v0.3.0" }
+
+[[bin]]
+name = "tangent_rider_core_client"
+path = "src/client.rs"
+required-features = ["client"]
+
+[[bin]]
+name = "tangent_rider_core_server"
+path = "src/server.rs"
+required-features = ["server"]
+
+[features]
+client = ["ambient_api/client"]
+server = ["ambient_api/server"]

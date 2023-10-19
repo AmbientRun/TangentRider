@@ -14,15 +14,20 @@ use ambient_api::{
 
 use packages::{
     game_object::components::health,
-    tangent_rider_schema::components::{
-        active_players, alive_player_queue, is_ready, start_position,
+    tangent_rider_schema::{
+        components::{
+            active_players, alive_player_queue, player_construction_camera_local_to_world,
+            player_current_spawnable, player_current_spawnable_ghost, player_is_ready,
+            player_money, start_position,
+        },
+        concepts::Spawnable,
     },
     tangent_schema::{
         player::components as pc,
         vehicle::{components as vc, def::components::is_def},
     },
     tangent_spawner_vehicle::messages::VehicleSpawn,
-    this::messages::MarkAsReady,
+    this::messages::{ConstructionCameraUpdate, ConstructionSpawnGhost, MarkAsReady},
 };
 
 use crate::packages::{
@@ -104,6 +109,57 @@ pub async fn main() {
         );
     });
 
+    // When a player sends their construction camera data, update their state.
+    ConstructionCameraUpdate::subscribe(|ctx, msg| {
+        let Some(player_id) = ctx.client_entity_id() else {
+            return;
+        };
+
+        entity::add_component(
+            player_id,
+            player_construction_camera_local_to_world(),
+            msg.local_to_world,
+        );
+    });
+
+    // Spawn a ghost when requested.
+    ConstructionSpawnGhost::subscribe(|ctx, msg| {
+        let Some(player_id) = ctx.client_entity_id() else {
+            return;
+        };
+
+        if entity::get_component(entity::synchronized_resources(), game_phase())
+            != Some(GamePhase::Construction)
+        {
+            return;
+        }
+
+        let Some(spawnable) = Spawnable::get_spawned(msg.spawnable_id) else {
+            return;
+        };
+
+        remove_player_spawnable(player_id);
+
+        let ghost_id = entity::get_all_components(spawnable.spawnable_ghost_ref).spawn();
+        entity::add_component(player_id, player_current_spawnable(), msg.spawnable_id);
+        entity::add_component(player_id, player_current_spawnable_ghost(), ghost_id);
+    });
+
+    // Ensure the ghost is always in front of the player. TODO: handle different modes
+    query((
+        player_construction_camera_local_to_world(),
+        player_current_spawnable_ghost(),
+    ))
+    .each_frame(|players| {
+        for (_player_id, (camera_ltw, ghost_id)) in players {
+            entity::set_component(
+                ghost_id,
+                translation(),
+                camera_ltw.transform_point3(vec3(0., 0., 10.)),
+            );
+        }
+    });
+
     // Sync player input state to vehicle input state.
     query((
         pc::input_direction(),
@@ -144,7 +200,7 @@ pub async fn main() {
 
     MarkAsReady::subscribe(|ctx, _| {
         if let Some(player_id) = ctx.client_entity_id() {
-            entity::add_component(player_id, is_ready(), ());
+            entity::add_component(player_id, player_is_ready(), ());
         }
     });
 
@@ -222,21 +278,26 @@ fn start_construct_phase() {
         GamePhase::Construction,
     );
 
-    // Remove the ready state from all players
+    // Prepare the entering-constructio state for each player
     let players = entity::get_component(entity::synchronized_resources(), active_players())
         .unwrap_or_default();
 
     for id in &players {
-        entity::remove_component(*id, is_ready());
+        entity::remove_component(*id, player_is_ready());
+        entity::mutate_component_with_default(*id, player_money(), 500, |money| *money += 500);
     }
 
     run_async(async move {
         block_until(|| {
             players
                 .iter()
-                .all(|id| entity::has_component(*id, is_ready()))
+                .all(|id| entity::has_component(*id, player_is_ready()))
         })
         .await;
+
+        for id in &players {
+            remove_player_spawnable(*id);
+        }
 
         start_play_phase();
     });
@@ -287,4 +348,15 @@ fn start_play_phase() {
 
         start_construct_phase();
     });
+}
+
+fn remove_player_spawnable(player_id: EntityId) {
+    if let Some(existing_ghost_id) =
+        entity::get_component(player_id, player_current_spawnable_ghost())
+    {
+        entity::despawn(existing_ghost_id);
+    }
+
+    entity::remove_component(player_id, player_current_spawnable());
+    entity::remove_component(player_id, player_current_spawnable_ghost());
 }
