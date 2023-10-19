@@ -65,6 +65,15 @@ pub async fn main() {
             }
         });
 
+    // When a vehicle despawns, remove the vehicle from the player.
+    despawn_query(vc::driver_ref())
+        .requires(vc::is_vehicle())
+        .bind(|vehicles| {
+            for (_vehicle_id, driver_id) in vehicles {
+                entity::remove_component(driver_id, pc::vehicle_ref());
+            }
+        });
+
     // When a player sends input, update their input state.
     Input::subscribe(|ctx, input| {
         let Some(player_id) = ctx.client_entity_id() else {
@@ -127,8 +136,8 @@ pub async fn main() {
 
 fn start_play_phase() {
     /// The length of a single player slot on the platform in metres.
-    const PLATFORM_WIDTH: f32 = 16.0;
-    const PLAYER_SLOT_LENGTH: f32 = 6.0;
+    const PLATFORM_WIDTH: f32 = 6.0;
+    const PLAYER_SLOT_LENGTH: f32 = 8.0;
 
     let queue = entity::get_all(is_player());
     let defs = entity::get_all(is_def());
@@ -167,7 +176,7 @@ fn start_play_phase() {
         VehicleSpawn {
             def_id: *defs.choose(&mut thread_rng()).unwrap(),
             position: start_position + vec3(0., ((i as f32) + 0.5) * PLAYER_SLOT_LENGTH, 0.),
-            rotation: None,
+            rotation: Some(Quat::from_rotation_z(0f32.to_radians())),
             driver_id: Some(*player_id),
         }
         .send_local_broadcast(false);

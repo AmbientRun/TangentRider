@@ -18,7 +18,7 @@ use packages::{tangent_schema::player::components as pc, this::messages::Input};
 pub fn main() {
     let camera_id = PerspectiveInfiniteReverseCamera {
         optional: PerspectiveInfiniteReverseCameraOptional {
-            translation: Some(Vec3::ONE * 10.0),
+            translation: Some(Vec3::ONE * 250.0),
             main_scene: Some(()),
             aspect_ratio_from_window: Some(entity::resources()),
             ..default()
